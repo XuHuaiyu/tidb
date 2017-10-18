@@ -93,10 +93,11 @@ func (e *HashJoinExec) Close() error {
 func (e *HashJoinExec) Open() error {
 	e.closeCh = make(chan struct{})
 	e.finished.Store(false)
+	// e.bigTableResultCh 该管道用来读取(非并发读, 还是一条一条的读)大表数据, 管道条数为 e.concurrency, 做 join 操作的时候是并发从管道读数据的
 	e.bigTableResultCh = make([]chan *execResult, e.concurrency)
 	e.wg = sync.WaitGroup{}
 	for i := 0; i < e.concurrency; i++ {
-		e.bigTableResultCh[i] = make(chan *execResult, e.concurrency)
+		e.bigTableResultCh[i] = make(chan *execResult, e.concurrency)// 每条管道容量也为 e.concurrency
 	}
 	e.prepared = false
 	e.cursor = 0
@@ -158,7 +159,7 @@ func (e *HashJoinExec) fetchBigExec() {
 	txnCtx := e.ctx.GoCtx()
 	for {
 		done := false
-		idx := cnt % e.concurrency
+		idx := cnt % e.concurrency // idx 表示本轮读取的数据写入哪个管道
 		for i := 0; i < curBatchSize; i++ {
 			if e.finished.Load().(bool) {
 				return
@@ -170,7 +171,7 @@ func (e *HashJoinExec) fetchBigExec() {
 				done = true
 				break
 			}
-			if row == nil {
+			if row == nil { // 所有大表数据均已读完
 				done = true
 				break
 			}
@@ -195,7 +196,7 @@ func (e *HashJoinExec) fetchBigExec() {
 			}
 			break
 		}
-		if curBatchSize < batchSize {
+		if curBatchSize < batchSize {// 每读一轮会增加下一轮读取的数据条数
 			curBatchSize *= 2
 		}
 	}
@@ -205,6 +206,7 @@ func (e *HashJoinExec) fetchBigExec() {
 // and reads all data from the small table to build a hash table, then starts multiple join worker goroutines.
 func (e *HashJoinExec) prepare() error {
 	// Start a worker to fetch big table rows.
+	// 此处不会阻塞主线程运行
 	e.wg.Add(1)
 	go e.fetchBigExec()
 
