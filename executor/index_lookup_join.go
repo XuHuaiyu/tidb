@@ -449,15 +449,19 @@ func (iw *innerWorker) sortAndDedupDatumLookUpKeys(dLookUpKeys [][]types.Datum) 
 		return dLookUpKeys
 	}
 	sc := iw.ctx.GetSessionVars().StmtCtx
-	sort.Slice(dLookUpKeys, func(i, j int) bool {
-		cmp := compareRow(sc, dLookUpKeys[i], dLookUpKeys[j])
+	origKeyIndex := make([]int, len(dLookUpKeys))
+	for i := range dLookUpKeys {
+		origKeyIndex[i] = i
+	}
+	sort.Slice(origKeyIndex, func(i, j int) bool {
+		cmp := compareRow(sc, dLookUpKeys[origKeyIndex[i]], dLookUpKeys[origKeyIndex[j]])
 		return cmp < 0
 	})
 	deDupedLookupKeys := dLookUpKeys[:1]
 	for i := 1; i < len(dLookUpKeys); i++ {
-		cmp := compareRow(sc, dLookUpKeys[i], dLookUpKeys[i-1])
+		cmp := compareRow(sc, dLookUpKeys[origKeyIndex[i]], dLookUpKeys[origKeyIndex[i-1]])
 		if cmp != 0 {
-			deDupedLookupKeys = append(deDupedLookupKeys, dLookUpKeys[i])
+			deDupedLookupKeys = append(deDupedLookupKeys, dLookUpKeys[origKeyIndex[i]])
 		}
 	}
 	return deDupedLookupKeys
