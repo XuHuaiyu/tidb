@@ -80,14 +80,6 @@ func NewDistAggFunc(expr *tipb.Expr, fieldTps []*types.FieldType, sc *stmtctx.St
 	return nil, errors.Errorf("Unknown aggregate function type %v", expr.Tp)
 }
 
-type Shuffle interface{
-	Next(srcChk *chunk.Chunk) *chunk.Chunk
-}
-
-type HashAggTask struct {
-	input *chunk.Chunk
-}
-
 type StreamAggPartialTask struct {
 	input *chunk.Chunk
 	begin int  // idx of input chunk.
