@@ -22,6 +22,8 @@ import (
 	"github.com/pingcap/tidb/sessionctx/stmtctx"
 	"github.com/pingcap/tidb/types"
 	tipb "github.com/pingcap/tipb/go-tipb"
+	"github.com/pingcap/tidb/util/chunk"
+	"sync/atomic"
 )
 
 // Aggregation stands for aggregate functions.
@@ -76,6 +78,140 @@ func NewDistAggFunc(expr *tipb.Expr, fieldTps []*types.FieldType, sc *stmtctx.St
 		return &bitAndFunction{aggFunction: newAggFunc(ast.AggFuncBitAnd, args, false)}, nil
 	}
 	return nil, errors.Errorf("Unknown aggregate function type %v", expr.Tp)
+}
+
+type Shuffle interface{
+	Next(srcChk *chunk.Chunk) *chunk.Chunk
+}
+
+type HashAggTask struct {
+	input *chunk.Chunk
+}
+
+type StreamAggPartialTask struct {
+	input *chunk.Chunk
+	begin int  // idx of input chunk.
+	end int
+	groupIdx int // group index in StreamAggExec.resultCh
+}
+
+type StreamAggFinalTask struct {
+	interResult afIntermediateResult
+	groupIdx int
+}
+
+type baseAggExecutor struct{
+	partitionHandler
+	shuffleHandler
+
+	partialWorker []aggWorker
+	finalWorker   []aggWorker
+}
+
+type partitionHandler interface{
+	NextPart() *chunk.Chunk
+}
+
+type shuffleHandler interface{
+	NextGroup() []afIntermediateResult
+}
+
+func (e *StreamAggExec) Next(chk *chunk.Chunk) {
+	!e.prepared{
+		// read data from child
+		// shuffle data to partial workers
+		Shuffle()
+		// start partial workers
+		for ;i < n; {
+			go StreamAggWorker.runMap()
+		}
+		for ;i < m;{
+			go StreamAggWorker.runReduce()
+		}
+	}
+	// get result from result ch
+	for rCh, ok := range resultCh {
+		<-rCh
+	}
+}
+
+type aggWorker interface {
+	runMap()
+	runReduce()
+}
+
+type baseAggWorker struct {
+	aggFuncs []Aggregation
+	aggCtxs  []*AggEvaluateContext
+}
+
+type StreamAggWorker struct {
+	baseAggWorker
+	curGroupKey []byte
+}
+
+func (*StreamAggWorker) runMap() {
+	// for until StreamAggExec.partialWorkerTaskCh is closed.
+	for {
+		// 1. get task from partialWorkerTaskCh
+		// 2. check whether equals to curGroupkey
+
+		// 3. if so,
+		for _, f := range aggFuncs {
+			switch f.state {
+			case Dedup:
+				f.evalDedup(task.input, aggEvaluateContext) // store distinct map or partial result in aggEvaluateContext
+			case Partial1:
+				f.evalPartial1()
+			case Partial2:
+				f.evalPartial2()
+			}
+		}
+		//if not, encode intermediate result from aggEvaluateContext and pass to final worker
+
+	}
+}
+
+func (*StreamAggWorker) runReduce(){
+	// for until StreamAggExec.finalWorkerTaskCh is closed.
+	for {
+		// 1. get task from finalWorkerTaskCh
+		// 2. check whether the parts of curGroupKey are all fetched.
+
+		// 3. if so,
+		for _, f := range aggFuncs{
+			switch f.state{
+			case Complete:
+
+			case Final:
+			}
+		}
+		// output the final result from aggEvaluateContext and pass to specific ch.
+		// if not, continue
+	}
+}
+
+type StreamAggExec struct{
+	baseAggExecutor
+
+	partialWorkerTaskCh chan StreamAggPartialTask
+	finalWorkerTaskCh chan StreamAggFinalTask
+	resultCh []chan chunk.Row  // const len, resultCh may need to be extracted as a Struct
+	paritalWorkers []StreamAggWorker
+	finalWorkers []StreamAggWorker
+}
+
+type AFEvaluator interface{
+	evalDedup(chk *chunk.Chunk)
+	evalPartial1(chk *chunk.Chunk)
+	evalPartial2(chk *chunk.Chunk)
+	evalFinal(interResult *afIntermediateResult)
+	evalComplete(interResult *afIntermediateResult)
+}
+
+type afIntermediateResult struct{
+	groupKey []byte
+	intermediateResult [][]byte
 }
 
 // AggEvaluateContext is used to store intermediate result when calculating aggregate functions.
