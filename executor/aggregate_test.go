@@ -24,6 +24,7 @@ import (
 func (s *testSuite) TestAggregation(c *C) {
 	tk := testkit.NewTestKit(c, s.store)
 	tk.MustExec("set @@tidb_hash_join_concurrency=1")
+	tk.MustExec("set @@tidb_hashagg_final_concurrency=1")
 	tk.MustExec("use test")
 	tk.MustExec("drop table if exists t")
 	tk.MustExec("create table t (c int, d int)")
@@ -340,6 +341,8 @@ func (s *testSuite) TestGroupConcatAggr(c *C) {
 	// issue #5411
 	tk := testkit.NewTestKit(c, s.store)
 	tk.MustExec("use test")
+	tk.MustExec("set @@tidb_hashagg_final_concurrency=1")
+	tk.MustExec("set @@tidb_hashagg_partial_concurrency=1")
 	tk.MustExec("create table test(id int, name int)")
 	tk.MustExec("insert into test values(1, 10);")
 	tk.MustExec("insert into test values(1, 20);")
@@ -378,6 +381,7 @@ func (s *testSuite) TestSelectDistinct(c *C) {
 func (s *testSuite) TestAggPushDown(c *C) {
 	tk := testkit.NewTestKit(c, s.store)
 	tk.MustExec("use test")
+	tk.MustExec("set @@tidb_hashagg_final_concurrency=1")
 	tk.MustExec("drop table if exists t, tt")
 	tk.MustExec("create table t(a int primary key, b int, c int)")
 	tk.MustExec("create table tt(a int primary key, b int, c int)")
@@ -491,6 +495,7 @@ func (s *testSuite) TestHaving(c *C) {
 	tk := testkit.NewTestKitWithInit(c, s.store)
 
 	tk.MustExec("set sql_mode = 'STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION'")
+	tk.MustExec("set @@tidb_hashagg_final_concurrency = 1")
 	tk.MustExec("drop table if exists t")
 	tk.MustExec("create table t (c1 int, c2 int, c3 int)")
 	tk.MustExec("insert into t values (1,2,3), (2, 3, 1), (3, 1, 2)")

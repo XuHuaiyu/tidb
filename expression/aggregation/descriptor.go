@@ -47,9 +47,17 @@ func NewAggFuncDesc(ctx sessionctx.Context, name string, args []expression.Expre
 		Name:        strings.ToLower(name),
 		Args:        args,
 		HasDistinct: hasDistinct,
+		Mode:        Partial1Mode,
 	}
 	a.typeInfer(ctx)
 	return a
+}
+
+// SetAggFuncDescMode sets mode for funcs.
+func SetAggFuncDescMode(funcs []*AggFuncDesc, mode AggFunctionMode) {
+	for i := range funcs {
+		funcs[i].Mode = mode
+	}
 }
 
 // Equal checks whether two aggregation function signatures are equal.
@@ -115,10 +123,9 @@ func (a *AggFuncDesc) CalculateDefaultValue(ctx sessionctx.Context, schema *expr
 	switch a.Name {
 	case ast.AggFuncCount:
 		return a.calculateDefaultValue4Count(ctx, schema)
-	case ast.AggFuncSum, ast.AggFuncMax, ast.AggFuncMin, ast.AggFuncFirstRow:
+	case ast.AggFuncSum, ast.AggFuncMax, ast.AggFuncMin,
+		ast.AggFuncFirstRow, ast.AggFuncAvg, ast.AggFuncGroupConcat:
 		return a.calculateDefaultValue4Sum(ctx, schema)
-	case ast.AggFuncAvg, ast.AggFuncGroupConcat:
-		return types.Datum{}, false
 	case ast.AggFuncBitAnd:
 		return a.calculateDefaultValue4BitAnd(ctx, schema)
 	case ast.AggFuncBitOr, ast.AggFuncBitXor:
@@ -231,14 +238,7 @@ func (a *AggFuncDesc) typeInfer4BitFuncs(ctx sessionctx.Context) {
 }
 
 func (a *AggFuncDesc) calculateDefaultValue4Count(ctx sessionctx.Context, schema *expression.Schema) (types.Datum, bool) {
-	for _, arg := range a.Args {
-		result := expression.EvaluateExprWithNull(ctx, schema, arg)
-		con, ok := result.(*expression.Constant)
-		if !ok || con.Value.IsNull() {
-			return types.Datum{}, ok
-		}
-	}
-	return types.NewDatum(1), true
+	return types.NewDatum(0), true
 }
 
 func (a *AggFuncDesc) calculateDefaultValue4Sum(ctx sessionctx.Context, schema *expression.Schema) (types.Datum, bool) {

@@ -85,13 +85,13 @@ func (s *testCodecSuite) TestCodecKey(c *C) {
 		c.Assert(err, IsNil, comment)
 		args, err := Decode(b, 1)
 		c.Assert(err, IsNil)
-		c.Assert(args, DeepEquals, t.Expect)
+		c.Assert([]types.Datum(args), DeepEquals, t.Expect)
 
 		b, err = EncodeValue(sc, nil, t.Input...)
 		c.Assert(err, IsNil)
 		args, err = Decode(b, 1)
 		c.Assert(err, IsNil)
-		c.Assert(args, DeepEquals, t.Expect)
+		c.Assert([]types.Datum(args), DeepEquals, t.Expect)
 	}
 }
 
@@ -578,7 +578,7 @@ func (s *testCodecSuite) TestDuration(c *C) {
 		v, err := Decode(b, 1)
 		c.Assert(err, IsNil)
 		m.Fsp = types.MaxFsp
-		c.Assert(v, DeepEquals, types.MakeDatums(m))
+		c.Assert([]types.Datum(v), DeepEquals, types.MakeDatums(m))
 	}
 
 	tblCmp := []struct {
@@ -734,7 +734,9 @@ func (s *testCodecSuite) TestDecimal(c *C) {
 		d.SetLength(20)
 		d.SetFrac(6)
 		d.SetMysqlDecimal(dec)
-		decs = append(decs, EncodeDecimal(nil, d.GetMysqlDecimal(), d.Length(), d.Frac()))
+		b, err := EncodeDecimal(nil, d.GetMysqlDecimal(), d.Length(), d.Frac())
+		c.Assert(err, IsNil)
+		decs = append(decs, b)
 	}
 	for i := 0; i < len(decs)-1; i++ {
 		cmp := bytes.Compare(decs[i], decs[i+1])

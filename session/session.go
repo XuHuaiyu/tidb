@@ -1084,7 +1084,9 @@ func CreateSession4Test(store kv.Storage) (Session, error) {
 	s, err := CreateSession(store)
 	if err == nil {
 		// initialize session variables for test.
-		s.GetSessionVars().MaxChunkSize = 2
+		sessionVars := s.GetSessionVars()
+		sessionVars.MaxChunkSize = 2
+		sessionVars.HashAggFinalConcurrency = 1
 	}
 	return s, errors.Trace(err)
 }
@@ -1288,6 +1290,8 @@ const loadCommonGlobalVarsSQL = "select HIGH_PRIORITY * from mysql.global_variab
 	variable.TiDBIndexLookupJoinConcurrency + quoteCommaQuote +
 	variable.TiDBIndexSerialScanConcurrency + quoteCommaQuote +
 	variable.TiDBHashJoinConcurrency + quoteCommaQuote +
+	variable.TiDBHashAggPartialConcurrency + quoteCommaQuote +
+	variable.TiDBHashAggFinalConcurrency + quoteCommaQuote +
 	variable.TiDBBackoffLockFast + quoteCommaQuote +
 	variable.TiDBOptInSubqUnFolding + quoteCommaQuote +
 	variable.TiDBDistSQLScanConcurrency + quoteCommaQuote +

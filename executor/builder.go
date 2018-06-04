@@ -40,6 +40,7 @@ import (
 	"github.com/pingcap/tidb/table"
 	"github.com/pingcap/tidb/types"
 	"github.com/pingcap/tidb/util/admin"
+	"github.com/pingcap/tidb/util/chunk"
 	"github.com/pingcap/tidb/util/ranger"
 	"github.com/pingcap/tipb/go-tipb"
 	"golang.org/x/net/context"
@@ -844,14 +845,31 @@ func (b *executorBuilder) buildHashAgg(v *plan.PhysicalHashAgg) Executor {
 		b.err = errors.Trace(b.err)
 		return nil
 	}
+	sessionVars := b.ctx.GetSessionVars()
 	e := &HashAggExec{
-		baseExecutor: newBaseExecutor(b.ctx, v.Schema(), v.ExplainID(), src),
-		sc:           b.ctx.GetSessionVars().StmtCtx,
-		AggFuncs:     make([]aggregation.Aggregation, 0, len(v.AggFuncs)),
-		GroupByItems: v.GroupByItems,
+		baseExecutor:       newBaseExecutor(b.ctx, v.Schema(), v.ExplainID(), src),
+		sc:                 sessionVars.StmtCtx,
+		AggFuncs:           make([]aggregation.Aggregation, 0, len(v.AggFuncs)),
+		GroupByItems:       v.GroupByItems,
+		partialConcurrency: sessionVars.HashAggPartialConcurrency,
+		finalConcurrency:   sessionVars.HashAggFinalConcurrency,
 	}
-	for _, aggDesc := range v.AggFuncs {
+	if len(v.GroupByItems) != 0 || plan.IsAllFirstRow(v.AggFuncs) {
+		e.defaultVal = nil
+	} else {
+		e.defaultVal = chunk.NewChunkWithCapacity(e.retTypes(), 1)
+	}
+	for i, aggDesc := range v.AggFuncs {
 		e.AggFuncs = append(e.AggFuncs, aggDesc.GetAggFunc())
+		if aggDesc.HasDistinct {
+			e.doesUnparallelExec = true
+		}
+		if e.defaultVal != nil {
+			value, existsDefaultValue := aggDesc.CalculateDefaultValue(e.ctx, e.children[0].Schema())
+			if existsDefaultValue {
+				e.defaultVal.AppendDatum(i, &value)
+			}
+		}
 	}
 	metrics.ExecutorCounter.WithLabelValues("HashAggExec").Inc()
 	return e

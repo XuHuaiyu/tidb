@@ -66,6 +66,7 @@ func (s *testIntegrationSuite) SetUpSuite(c *C) {
 	s.store, s.dom, err = newStoreWithBootstrap()
 	c.Assert(err, IsNil)
 	s.ctx = mock.NewContext()
+	s.ctx.GetSessionVars().HashAggFinalConcurrency = 1
 }
 
 func (s *testIntegrationSuite) TearDownSuite(c *C) {
@@ -135,6 +136,7 @@ func (s *testIntegrationSuite) TestMiscellaneousBuiltin(c *C) {
 
 	tk := testkit.NewTestKit(c, s.store)
 	tk.MustExec("use test")
+	tk.MustExec("set @@tidb_hashagg_final_concurrency=1")
 	// for uuid
 	r := tk.MustQuery("select uuid(), uuid(), uuid(), uuid(), uuid(), uuid();")
 	for _, it := range r.Rows() {
