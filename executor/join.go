@@ -29,6 +29,7 @@ import (
 	"github.com/pingcap/tidb/util/mvmap"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -168,6 +169,10 @@ func (e *HashJoinExec) getJoinKeyFromChkRow(isOuterKey bool, row chunk.Row, keyB
 	} else {
 		keyColIdx = e.innerKeyColIdx
 		allTypes = e.innerExec.retTypes()
+	}
+	logrus.Warning("isOuterKey", isOuterKey)
+	for i, idx := range keyColIdx{
+		logrus.Warning("i", i, "idx", idx, allTypes[i].String())
 	}
 
 	for _, i := range keyColIdx {
@@ -391,6 +396,7 @@ func (e *HashJoinExec) runJoinWorker(workerID uint) {
 func (e *HashJoinExec) joinMatchedOuterRow2Chunk(workerID uint, outerRow chunk.Row,
 	joinResult *hashjoinWorkerResult) (bool, *hashjoinWorkerResult) {
 	buffer := e.hashJoinBuffers[workerID]
+	logrus.Warning("HashJoinExec.id:", e.id)
 	hasNull, joinKey, err := e.getJoinKeyFromChkRow(true, outerRow, buffer.bytes)
 	if err != nil {
 		joinResult.err = errors.Trace(err)
@@ -458,10 +464,12 @@ func (e *HashJoinExec) join2Chunk(workerID uint, outerChk *chunk.Chunk, joinResu
 		joinResult.err = errors.Trace(err)
 		return false, joinResult
 	}
+	logrus.Warning("In join2Chunk, selected.Len", len(selected), "outerChk.NumRows()", outerChk.NumRows())
 	for i := range selected {
 		if !selected[i] { // process unmatched outer rows
 			e.joiners[workerID].onMissMatch(outerChk.GetRow(i), joinResult.chk)
 		} else { // process matched outer rows
+			logrus.Warning("i", i)
 			ok, joinResult = e.joinMatchedOuterRow2Chunk(workerID, outerChk.GetRow(i), joinResult)
 			if !ok {
 				return false, joinResult

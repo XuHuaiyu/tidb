@@ -18,6 +18,7 @@ import (
 
 	"github.com/pingcap/tidb/types"
 	"github.com/pingcap/tidb/types/json"
+	"github.com/sirupsen/logrus"
 )
 
 func (c *column) appendDuration(dur types.Duration) {
@@ -68,6 +69,7 @@ func (c *column) reset() {
 }
 
 func (c *column) isNull(rowIdx int) bool {
+	logrus.Warning("rowIdx", rowIdx, "rowIdx/8", rowIdx/8)
 	nullByte := c.nullBitmap[rowIdx/8]
 	return nullByte&(1<<(uint(rowIdx)&7)) == 0
 }
