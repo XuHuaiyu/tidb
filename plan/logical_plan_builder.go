@@ -655,6 +655,17 @@ func (b *planBuilder) buildProjection4Union(u *LogicalUnionAll) {
 	}
 	// If the types of some child don't match the types of union, we add a projection with cast function.
 	for childID, child := range u.children {
+		uniqueIDToOutputIdxes := make(map[string][]int)
+		if p, ok := child.(*LogicalProjection); ok {
+			for i, expr := range p.Exprs {
+				col, ok1 := expr.(*expression.Column)
+				if !ok1 {
+					continue
+				}
+				uniqueID := fmt.Sprintf("%d-%d", col.FromID, col.Position)
+				uniqueIDToOutputIdxes[uniqueID] = append(uniqueIDToOutputIdxes[uniqueID], i)
+			}
+		}
 		exprs := make([]expression.Expression, len(child.Schema().Columns))
 		needProjection := false
 		for i, srcCol := range child.Schema().Columns {
@@ -668,6 +679,14 @@ func (b *planBuilder) buildProjection4Union(u *LogicalUnionAll) {
 			}
 		}
 		if _, isProj := child.(*LogicalProjection); needProjection || !isProj {
+			for _, outputIdexes := range uniqueIDToOutputIdxes {
+				if len(outputIdexes) <= 1 {
+					continue
+				}
+				for i := 1; i < len(outputIdexes); i++ {
+					exprs[outputIdexes[i]] = exprs[outputIdexes[0]].Clone()
+				}
+			}
 			b.optFlag |= flagEliminateProjection
 			proj := LogicalProjection{Exprs: exprs}.init(b.ctx)
 			if childID == 0 {
