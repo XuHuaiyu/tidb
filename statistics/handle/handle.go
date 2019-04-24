@@ -124,7 +124,7 @@ func DurationToTS(d time.Duration) uint64 {
 }
 
 // Update reads stats meta from store and updates the stats map.
-func (h *Handle) Update(is infoschema.InfoSchema) error {
+func (h *Handle) Update(is infoschema.InfoSchema) (err error) {
 	lastVersion := h.LastUpdateVersion()
 	// We need this because for two tables, the smaller version may write later than the one with larger version.
 	// Consider the case that there are two tables A and B, their version and commit time is (A0, A1) and (B0, B1),
@@ -137,8 +137,16 @@ func (h *Handle) Update(is infoschema.InfoSchema) error {
 	} else {
 		lastVersion = 0
 	}
-	sql := fmt.Sprintf("SELECT version, table_id, modify_count, count from mysql.stats_meta where version > %d order by version", lastVersion)
-	rows, _, err := h.restrictedExec.ExecRestrictedSQL(nil, sql)
+
+	var rows []chunk.Row
+	sql := "SELECT version, table_id, modify_count, count from mysql.stats_meta"
+	if snapshot := h.mu.ctx.GetSessionVars().SnapshotTS; snapshot != 0 {
+		sql = fmt.Sprintf("%s where version <= %d order by version", sql, snapshot)
+		rows, _ , err = h.restrictedExec.ExecRestrictedSQLWithSnapshot(nil, sql)
+	}else {
+		sql = fmt.Sprintf("%s where version > %d order by version", sql, lastVersion)
+		rows, _, err = h.restrictedExec.ExecRestrictedSQL(nil, sql)
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -318,7 +326,7 @@ func (h *Handle) FlushStats() {
 
 func (h *Handle) cmSketchFromStorage(tblID int64, isIndex, histID int64) (*statistics.CMSketch, error) {
 	selSQL := fmt.Sprintf("select cm_sketch from mysql.stats_histograms where table_id = %d and is_index = %d and hist_id = %d", tblID, isIndex, histID)
-	rows, _, err := h.restrictedExec.ExecRestrictedSQL(nil, selSQL)
+	rows, _, err := h.restrictedExec.ExecRestrictedSQLWithSnapshot(nil, selSQL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -594,7 +602,7 @@ func (h *Handle) SaveMetaToStorage(tableID, count, modifyCount int64) (err error
 
 func (h *Handle) histogramFromStorage(tableID int64, colID int64, tp *types.FieldType, distinct int64, isIndex int, ver uint64, nullCount int64, totColSize int64, corr float64) (*statistics.Histogram, error) {
 	selSQL := fmt.Sprintf("select count, repeats, lower_bound, upper_bound from mysql.stats_buckets where table_id = %d and is_index = %d and hist_id = %d order by bucket_id", tableID, isIndex, colID)
-	rows, fields, err := h.restrictedExec.ExecRestrictedSQL(nil, selSQL)
+	rows, fields, err := h.restrictedExec.ExecRestrictedSQLWithSnapshot(nil, selSQL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
