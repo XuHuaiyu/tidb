@@ -1612,6 +1612,12 @@ func (s *testSuite4) TestMultipleTableUpdate(c *C) {
 	tk.MustExec("update t m, t n set n.a = n.a - 1, n.b = n.b + 1")
 	tk.CheckLastMessage("Rows matched: 3  Changed: 3  Warnings: 0")
 	tk.MustQuery("select * from t").Check(testkit.Rows("1 2", "2 3", "3 4"))
+
+	tk.MustExec("drop table if exists tb")
+	tk.MustExec("create table tb(a int, b int)")
+	tk.MustExec("insert into tb values(1, null), (1, 1)")
+	tk.MustExec("update tb s , (SELECT distinct a,b FROM tb where b is not null) t set s.b = t.b  where s.a = t.a and s.b is null;")
+	tk.CheckLastMessage("Rows matched: 1  Changed: 1  Warnings: 0")
 }
 
 func (s *testSuite) TestDelete(c *C) {

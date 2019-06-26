@@ -2589,6 +2589,11 @@ func (b *PlanBuilder) buildUpdate(update *ast.UpdateStmt) (Plan, error) {
 	if err != nil {
 		return nil, err
 	}
+	// The schema may be different between updt.SelectPlan and updt because of
+	// optimization such as ProjectionElimination, thus we reset the
+	// updt.SelectPlan.Schema to updt.Schema.
+	schema := updt.SelectPlan.Schema()
+	*schema = *updt.schema
 	err = updt.ResolveIndices()
 	return updt, err
 }
