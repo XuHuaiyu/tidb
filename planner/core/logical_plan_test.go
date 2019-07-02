@@ -1222,6 +1222,24 @@ func (s *testPlanSuite) TestColumnPruning(c *C) {
 				3: {"a"},
 			},
 		},
+		{
+			sql: "select 1 from (select count(b) as cnt from t) t1;",
+			ans: map[int][]string{
+				1: {"test.t.a"},
+			},
+		},
+		{
+			sql: "select count(1) from (select count(b) as cnt from t) t1;",
+			ans: map[int][]string{
+				1: {"test.t.a"},
+			},
+		},
+		{
+			sql: "select count(1) from (select count(b) as cnt from t group by c) t1;",
+			ans: map[int][]string{
+				1: {"test.t.c"},
+			},
+		},
 	}
 	for _, tt := range tests {
 		comment := Commentf("for %s", tt.sql)
