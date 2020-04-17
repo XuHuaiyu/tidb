@@ -548,7 +548,7 @@ func (iw *indexHashJoinInnerWorker) handleTask(ctx context.Context, cancelFunc c
 		return err
 	}
 	iw.wg.Wait()
-	if !task.keepOuterOrder {
+	if !task.keepOuterOrder && JoinerType(iw.joiner) != plannercore.AntiSemiJoin{
 		return iw.doJoinUnordered(ctx, task, joinResult, h, resultCh)
 	}
 	return iw.doJoinInOrder(ctx, task, joinResult, h, resultCh)
