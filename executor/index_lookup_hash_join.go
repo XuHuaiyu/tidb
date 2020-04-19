@@ -28,6 +28,7 @@ import (
 	"github.com/pingcap/tidb/util/logutil"
 	"github.com/pingcap/tidb/util/memory"
 	"github.com/pingcap/tidb/util/ranger"
+	"github.com/sirupsen/logrus"
 	"go.uber.org/zap"
 )
 
@@ -563,6 +564,15 @@ func (iw *indexHashJoinInnerWorker) doJoinUnordered(ctx context.Context, task *i
 			return errors.New("indexHashJoinInnerWorker.doJoinUnordered failed")
 		}
 	}
+	matchedCnt := 0
+	for _, outerRowStatus := range task.outerRowStatus {
+		for _, val := range outerRowStatus {
+			if val == outerRowMatched {
+				matchedCnt += 1
+			}
+		}
+	}
+	logrus.Warning("task.outerRowStatus outerRowMatched ", matchedCnt)
 	for chkIdx, outerRowStatus := range task.outerRowStatus {
 		chk := task.outerResult.GetChunk(chkIdx)
 		for rowIdx, val := range outerRowStatus {
