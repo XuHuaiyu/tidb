@@ -28,8 +28,8 @@ import (
 	"github.com/pingcap/tidb/util/logutil"
 	"github.com/pingcap/tidb/util/memory"
 	"github.com/pingcap/tidb/util/ranger"
+		"go.uber.org/zap"
 	"github.com/sirupsen/logrus"
-	"go.uber.org/zap"
 )
 
 // numResChkHold indicates the number of resource chunks that an inner worker
@@ -87,6 +87,7 @@ type indexHashJoinInnerWorker struct {
 	wg             *sync.WaitGroup
 	joinKeyBuf     []byte
 	outerRowStatus []outerRowStatusFlag
+	matchedCnt int
 }
 
 type indexHashJoinResult struct {
@@ -423,6 +424,9 @@ func (e *IndexNestedLoopHashJoin) newInnerWorker(taskCh chan *indexHashJoinTask,
 }
 
 func (iw *indexHashJoinInnerWorker) run(ctx context.Context, cancelFunc context.CancelFunc) {
+	defer func() {
+		logrus.Warning("index hash join inner work ", iw.matchedCnt)
+	}()
 	var task *indexHashJoinTask
 	joinResult, ok := iw.getNewJoinResult(ctx)
 	if !ok {
@@ -564,19 +568,11 @@ func (iw *indexHashJoinInnerWorker) doJoinUnordered(ctx context.Context, task *i
 			return errors.New("indexHashJoinInnerWorker.doJoinUnordered failed")
 		}
 	}
-	matchedCnt := 0
-	for _, outerRowStatus := range task.outerRowStatus {
-		for _, val := range outerRowStatus {
-			if val == outerRowMatched {
-				matchedCnt += 1
-			}
-		}
-	}
-	logrus.Warning("task.outerRowStatus outerRowMatched ", matchedCnt)
 	for chkIdx, outerRowStatus := range task.outerRowStatus {
 		chk := task.outerResult.GetChunk(chkIdx)
 		for rowIdx, val := range outerRowStatus {
 			if val == outerRowMatched {
+				iw.matchedCnt += 1
 				continue
 			}
 			iw.joiner.onMissMatch(val == outerRowHasNull, chk.GetRow(rowIdx), joinResult.chk)
