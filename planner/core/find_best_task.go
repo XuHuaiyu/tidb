@@ -1162,6 +1162,7 @@ func (ds *DataSource) convertToPointGet(prop *property.PhysicalProperty, candida
 		outputNames:  ds.OutputNames(),
 		LockWaitTime: ds.ctx.GetSessionVars().LockWaitTimeout,
 		Columns:      ds.Columns,
+		Path:         candidate.path,
 	}.Init(ds.ctx, ds.stats.ScaleByExpectCnt(1.0), ds.blockOffset)
 	var partitionInfo *model.PartitionDefinition
 	if ds.isPartition {
@@ -1233,6 +1234,7 @@ func (ds *DataSource) convertToBatchPointGet(prop *property.PhysicalProperty, ca
 		TblInfo:   ds.TableInfo(),
 		KeepOrder: !prop.IsEmpty(),
 		Columns:   ds.Columns,
+		Path:      candidate.path,
 	}.Init(ds.ctx, ds.stats.ScaleByExpectCnt(float64(len(candidate.path.Ranges))), ds.schema.Clone(), ds.names, ds.blockOffset)
 	if batchPointGetPlan.KeepOrder {
 		batchPointGetPlan.Desc = prop.Items[0].Desc

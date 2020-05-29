@@ -468,6 +468,28 @@ func (e *Execute) rebuildRange(p Plan) error {
 			}
 		}
 	case *PointGetPlan:
+		if x.Path != nil {
+			if x.PartitionInfo != nil {
+				return errors.Errorf("Ban partition for now")
+			}
+			if x.Path.IsTablePath {
+				x.Path.Ranges, err = ranger.BuildTableRange(x.Path.AccessConds, sc, x.Path.PkCol.RetType)
+				if err != nil || len(x.Path.Ranges) != 1 || !x.Path.Ranges[0].IsPoint(x.ctx.GetSessionVars().StmtCtx) {
+					return errors.Errorf("Range is not point")
+				}
+				x.Handle = x.Path.Ranges[0].LowVal[0].GetInt64()
+				return nil
+			}
+			res, err := ranger.DetachCondAndBuildRangeForIndex(e.ctx, x.Path.AccessConds, x.Path.IdxCols, x.Path.IdxColLens)
+			if err != nil {
+				return err
+			}
+			if len(res.Ranges) != 1 || len(res.Ranges[0].LowVal) != len(x.Path.Index.Columns) || !res.Ranges[0].IsPoint(x.ctx.GetSessionVars().StmtCtx) {
+				return errors.Errorf("Range is not point")
+			}
+			x.IndexValues = res.Ranges[0].LowVal
+			return nil
+		}
 		if x.HandleParam != nil {
 			x.Handle, err = x.HandleParam.Datum.ToInt64(sc)
 			if err != nil {
@@ -492,6 +514,9 @@ func (e *Execute) rebuildRange(p Plan) error {
 		}
 		return nil
 	case *BatchPointGetPlan:
+		if x.Path != nil {
+			return errors.Errorf("Batch Point is not supported for now")
+		}
 		for i, param := range x.HandleParams {
 			if param != nil {
 				x.Handles[i], err = param.Datum.ToInt64(sc)
