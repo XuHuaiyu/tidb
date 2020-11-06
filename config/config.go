@@ -625,7 +625,7 @@ var defaultConf = Config{
 	SplitTable:                   true,
 	Lease:                        "45s",
 	TokenLimit:                   1000,
-	OOMUseTmpStorage:             true,
+	OOMUseTmpStorage:             false,
 	TempStorageQuota:             -1,
 	TempStoragePath:              tempStorageDirName,
 	OOMAction:                    OOMActionCancel,
