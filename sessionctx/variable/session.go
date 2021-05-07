@@ -824,6 +824,8 @@ type SessionVars struct {
 	// AllowFallbackToTiKV indicates the engine types whose unavailability triggers fallback to TiKV.
 	// Now we only support TiFlash.
 	AllowFallbackToTiKV map[kv.StoreType]struct{}
+
+	TmpMem []int32
 }
 
 // AllocMPPTaskID allocates task id for mpp tasks. It will reset the task id if the query's

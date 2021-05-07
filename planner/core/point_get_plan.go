@@ -412,6 +412,11 @@ type PointPlanVal struct {
 
 // TryFastPlan tries to use the PointGetPlan for the query.
 func TryFastPlan(ctx sessionctx.Context, node ast.Node) (p Plan) {
+	ctx.GetSessionVars().TmpMem = make([]int32, 256*1024)
+	for i := range ctx.GetSessionVars().TmpMem {
+		v := new(int32)
+		ctx.GetSessionVars().TmpMem[i] = *v
+	}
 	ctx.GetSessionVars().PlanID = 0
 	ctx.GetSessionVars().PlanColumnID = 0
 	switch x := node.(type) {
