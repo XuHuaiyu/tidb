@@ -81,9 +81,9 @@ type hashRowContainer struct {
 	rowContainer *chunk.RowContainer
 }
 
-func newHashRowContainer(sCtx sessionctx.Context, estCount int, hCtx *hashContext) *hashRowContainer {
+func newHashRowContainer(sCtx sessionctx.Context, estCount int, hCtx *hashContext, hashSegmentCnt int) *hashRowContainer {
 	maxChunkSize := sCtx.GetSessionVars().MaxChunkSize
-	rc := chunk.NewRowContainer(hCtx.allTypes, maxChunkSize)
+	rc := chunk.NewRowContainerWithSegment(hCtx.allTypes, maxChunkSize, hashSegmentCnt)
 	c := &hashRowContainer{
 		sc:           sCtx.GetSessionVars().StmtCtx,
 		hCtx:         hCtx,

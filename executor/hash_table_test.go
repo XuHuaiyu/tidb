@@ -119,7 +119,7 @@ func (s *pkgTestSerialSuite) testHashRowContainer(c *C, hashFunc func() hash.Has
 	for i := 0; i < numRows; i++ {
 		hCtx.hashVals = append(hCtx.hashVals, hashFunc())
 	}
-	rowContainer := newHashRowContainer(sctx, 0, hCtx)
+	rowContainer := newHashRowContainer(sctx, 0, hCtx, 4)
 	tracker := rowContainer.GetMemTracker()
 	tracker.SetLabel(memory.LabelForBuildSideResult)
 	if spill {

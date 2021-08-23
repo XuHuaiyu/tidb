@@ -741,7 +741,7 @@ func (e *HashJoinExec) buildHashTableForList(buildSideResultCh <-chan *chunk.Chu
 	}
 	var err error
 	var selected []bool
-	e.rowContainer = newHashRowContainer(e.ctx, int(e.buildSideEstCount), hCtx)
+	e.rowContainer = newHashRowContainer(e.ctx, int(e.buildSideEstCount), hCtx, int(e.concurrency))
 	e.rowContainer.GetMemTracker().AttachTo(e.memTracker)
 	e.rowContainer.GetMemTracker().SetLabel(memory.LabelForBuildSideResult)
 	e.rowContainer.GetDiskTracker().AttachTo(e.diskTracker)

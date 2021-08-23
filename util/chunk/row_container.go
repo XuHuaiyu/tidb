@@ -28,12 +28,47 @@ import (
 	"go.uber.org/zap"
 )
 
+type segmentedRWMutex []sync.RWMutex
+
+const DefaultSegmentCnt int = 1
+
+// RLock locks rw for reading.
+func (s *segmentedRWMutex) RLock(offset int) {
+	var l []sync.RWMutex = *s
+	(*s)[offset%cap(l)].RLock()
+}
+
+// RUnlock undoes a single RLock call.
+func (s *segmentedRWMutex) RUnlock(offset int) {
+	var l []sync.RWMutex = *s
+	(*s)[offset%cap(l)].RUnlock()
+}
+
+// Lock locks rw for writing.
+func (s *segmentedRWMutex) Lock() {
+	for i := range *s {
+		(*s)[i].Lock()
+	}
+}
+
+// Unlock undoes a single rw for writing.
+func (s *segmentedRWMutex) Unlock() {
+	for i := range *s {
+		(*s)[i].Unlock()
+	}
+}
+
+func newSegmentedRWLock(segmentCnt int) segmentedRWMutex {
+	return make([]sync.RWMutex, segmentCnt)
+}
+
 // RowContainer provides a place for many rows, so many that we might want to spill them into disk.
 // nolint:structcheck
 type RowContainer struct {
 	m struct {
-		// RWMutex guarantees spill and get operator for rowContainer is mutually exclusive.
-		sync.RWMutex
+		// segmentedRWMutex guarantees `SPILL` and `GET` operator for rowContainer is mutually exclusive.
+		// Use segmentMutex to reduce the contention when execute `GET`.
+		segmentedRWMutex
 		// records stores the chunks in memory.
 		records *List
 		// recordsInDisk stores the chunks in disk.
@@ -53,9 +88,15 @@ type RowContainer struct {
 
 // NewRowContainer creates a new RowContainer in memory.
 func NewRowContainer(fieldType []*types.FieldType, chunkSize int) *RowContainer {
+	return NewRowContainerWithSegment(fieldType, chunkSize, DefaultSegmentCnt)
+}
+
+// NewRowContainerWithSegment creates a new RowContainer in memory with segments.
+func NewRowContainerWithSegment(fieldType []*types.FieldType, chunkSize int, segmentCnt int) *RowContainer {
 	li := NewList(fieldType, chunkSize, chunkSize)
 	rc := &RowContainer{fieldType: fieldType, chunkSize: chunkSize}
 	rc.m.records = li
+	rc.m.segmentedRWMutex = newSegmentedRWLock(segmentCnt)
 	rc.memTracker = li.memTracker
 	rc.diskTracker = disk.NewTracker(memory.LabelForRowContainer, -1)
 	return rc
@@ -64,7 +105,9 @@ func NewRowContainer(fieldType []*types.FieldType, chunkSize int) *RowContainer 
 // SpillToDisk spills data to disk. This function may be called in parallel.
 func (c *RowContainer) SpillToDisk() {
 	c.m.Lock()
-	defer c.m.Unlock()
+	defer func() {
+		c.m.Unlock()
+	}()
 	if c.alreadySpilled() {
 		return
 	}
@@ -118,15 +161,15 @@ func (c *RowContainer) alreadySpilled() bool {
 // AlreadySpilledSafeForTest indicates that records have spilled out into disk. It's thread-safe.
 // The function is only used for test.
 func (c *RowContainer) AlreadySpilledSafeForTest() bool {
-	c.m.RLock()
-	defer c.m.RUnlock()
+	c.m.RLock(0)
+	defer c.m.RUnlock(0)
 	return c.m.recordsInDisk != nil
 }
 
 // NumRow returns the number of rows in the container
 func (c *RowContainer) NumRow() int {
-	c.m.RLock()
-	defer c.m.RUnlock()
+	c.m.RLock(0)
+	defer c.m.RUnlock(0)
 	if c.alreadySpilled() {
 		return c.m.recordsInDisk.Len()
 	}
@@ -135,8 +178,8 @@ func (c *RowContainer) NumRow() int {
 
 // NumRowsOfChunk returns the number of rows of a chunk in the ListInDisk.
 func (c *RowContainer) NumRowsOfChunk(chkID int) int {
-	c.m.RLock()
-	defer c.m.RUnlock()
+	c.m.RLock(0)
+	defer c.m.RUnlock(0)
 	if c.alreadySpilled() {
 		return c.m.recordsInDisk.NumRowsOfChunk(chkID)
 	}
@@ -145,8 +188,8 @@ func (c *RowContainer) NumRowsOfChunk(chkID int) int {
 
 // NumChunks returns the number of chunks in the container.
 func (c *RowContainer) NumChunks() int {
-	c.m.RLock()
-	defer c.m.RUnlock()
+	c.m.RLock(0)
+	defer c.m.RUnlock(0)
 	if c.alreadySpilled() {
 		return c.m.recordsInDisk.NumChunks()
 	}
@@ -155,8 +198,8 @@ func (c *RowContainer) NumChunks() int {
 
 // Add appends a chunk into the RowContainer.
 func (c *RowContainer) Add(chk *Chunk) (err error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
+	c.m.RLock(0)
+	defer c.m.RUnlock(0)
 	failpoint.Inject("testRowContainerDeadLock", func(val failpoint.Value) {
 		if val.(bool) {
 			time.Sleep(time.Second)
@@ -180,8 +223,8 @@ func (c *RowContainer) AllocChunk() (chk *Chunk) {
 
 // GetChunk returns chkIdx th chunk of in memory records.
 func (c *RowContainer) GetChunk(chkIdx int) (*Chunk, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
+	c.m.RLock(chkIdx)
+	defer c.m.RUnlock(chkIdx)
 	if !c.alreadySpilled() {
 		return c.m.records.GetChunk(chkIdx), nil
 	}
@@ -193,8 +236,8 @@ func (c *RowContainer) GetChunk(chkIdx int) (*Chunk, error) {
 
 // GetRow returns the row the ptr pointed to.
 func (c *RowContainer) GetRow(ptr RowPtr) (Row, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
+	c.m.RLock(int(ptr.ChkIdx))
+	defer c.m.RUnlock(int(ptr.ChkIdx))
 	if c.alreadySpilled() {
 		if c.m.spillError != nil {
 			return Row{}, c.m.spillError
@@ -216,8 +259,8 @@ func (c *RowContainer) GetDiskTracker() *disk.Tracker {
 
 // Close close the RowContainer
 func (c *RowContainer) Close() (err error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
+	c.m.RLock(0)
+	defer c.m.RUnlock(0)
 	if c.actionSpill != nil {
 		// Set status to spilledYet to avoid spilling.
 		c.actionSpill.setStatus(spilledYet)
