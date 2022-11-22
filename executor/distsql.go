@@ -874,13 +874,24 @@ func (w *indexWorker) fetchHandles(ctx context.Context, result distsql.SelectRes
 		}
 		task := w.buildTableTask(handles, retChunk)
 		finishBuild := time.Now()
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-w.finished:
-			return nil
-		case w.workCh <- task:
-			w.resultCh <- task
+		if w.idxLookup.ctx.GetSessionVars().ConnectionID != 0{
+			select {
+			case <-ctx.Done():
+				logutil.BgLogger().Error("indexWorker ctx.Done, be killed")
+				return nil
+			case <-w.finished:
+				logutil.BgLogger().Error("indexWorker w.finished, be killed")
+				return nil
+			}
+		}else {
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-w.finished:
+				return nil
+			case w.workCh <- task:
+				w.resultCh <- task
+			}
 		}
 		if w.idxLookup.stats != nil {
 			atomic.AddInt64(&w.idxLookup.stats.FetchHandle, int64(finishFetch.Sub(startTime)))
@@ -1028,9 +1039,15 @@ func (w *tableWorker) pickAndExecTask(ctx context.Context) {
 		select {
 		case task, ok = <-w.workCh:
 			if !ok {
+				if w.idxLookup.ctx.GetSessionVars().ConnectionID != 0 {
+					logutil.BgLogger().Error("tableWorker w.workCh, killed ")
+				}
 				return
 			}
 		case <-w.finished:
+			if w.idxLookup.ctx.GetSessionVars().ConnectionID != 0 {
+				logutil.BgLogger().Error("tableWorker finished, killed ")
+			}
 			return
 		}
 		startTime := time.Now()
