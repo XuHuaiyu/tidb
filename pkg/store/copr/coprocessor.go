@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"math/rand"
 	"net"
 	"runtime"
 	"strconv"
@@ -42,6 +43,7 @@ import (
 	tidbmetrics "github.com/pingcap/tidb/pkg/metrics"
 	"github.com/pingcap/tidb/pkg/parser/terror"
 	"github.com/pingcap/tidb/pkg/resourcegroup"
+	tidbUtil "github.com/pingcap/tidb/pkg/util"
 	"github.com/pingcap/tidb/pkg/sessionctx/vardef"
 	copr_metrics "github.com/pingcap/tidb/pkg/store/copr/metrics"
 	"github.com/pingcap/tidb/pkg/store/driver/backoff"
@@ -1451,9 +1453,18 @@ func (worker *copIteratorWorker) handleTaskOnce(bo *Backoffer, task *copTask) (*
 	if isInternal {
 		scope = metrics.LblInternal
 	}
-	metrics.TiKVCoprocessorHistogram.WithLabelValues(storeID, strconv.FormatBool(staleRead), scope).Observe(costTime.Seconds())
+	// 模拟同一时刻有 10*5 台 tidb-server 实例往 20 个 tikv 发送 cop req
+	for i := 0; i < 10; i ++ {
+		for j := 0; j < 20; j++{
+			metrics.TiKVCoprocessorHistogram.WithLabelValues(storeID, strconv.FormatBool(staleRead), scope).Observe(tidbUtil.ReqDuration[rand.Int63n(30)].Seconds())
+		}
+	}
 	if copResp != nil {
-		tidbmetrics.DistSQLCoprRespBodySize.WithLabelValues(storeAddr).Observe(float64(len(copResp.Data)))
+		for i := 0; i < 10; i ++ {
+			for j := 0; j < 20; j++{
+				tidbmetrics.DistSQLCoprRespBodySize.WithLabelValues(storeAddr).Observe(tidbUtil.RespSize[rand.Intn(20)])
+			}
+		}	
 	}
 
 	var result *copTaskResult

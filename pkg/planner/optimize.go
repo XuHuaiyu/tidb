@@ -229,6 +229,7 @@ func Optimize(ctx context.Context, sctx sessionctx.Context, node *resolve.NodeW,
 			fp = fpv.Plan
 		} else {
 			fp = core.TryFastPlan(pctx, node)
+			fp = nil
 		}
 		if fp != nil {
 			return fp, fp.OutputNames(), nil

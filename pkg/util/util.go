@@ -22,6 +22,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
+	"math/rand"
 	"net"
 	"net/http"
 	"strconv"
@@ -105,6 +107,64 @@ func Str2Int64Map(str string) map[int64]struct{} {
 		res[id] = struct{}{}
 	}
 	return res
+}
+
+var ReqDuration = []time.Duration{
+	time.Duration(rand.Intn(300)) * time.Microsecond,
+	time.Duration(rand.Intn(300)) * time.Microsecond * time.Duration(math.Exp2(1)),
+	time.Duration(rand.Intn(300)) * time.Microsecond * time.Duration(math.Exp2(2)), 
+	time.Duration(rand.Intn(300)) * time.Microsecond * time.Duration(math.Exp2(3)), 
+	time.Duration(rand.Intn(300)) * time.Microsecond * time.Duration(math.Exp2(4)), 
+	time.Duration(rand.Intn(300)) * time.Microsecond * time.Duration(math.Exp2(5)), 
+	time.Duration(rand.Intn(300)) * time.Microsecond * time.Duration(math.Exp2(6)), 
+	time.Duration(rand.Intn(300)) * time.Microsecond * time.Duration(math.Exp2(7)), 
+	time.Duration(rand.Intn(300)) * time.Microsecond * time.Duration(math.Exp2(8)), 
+	time.Duration(rand.Intn(300)) * time.Microsecond * time.Duration(math.Exp2(9)),
+	time.Duration(rand.Intn(300)) * time.Microsecond * time.Duration(math.Exp2(10)),
+	time.Duration(rand.Intn(300)) * time.Microsecond * time.Duration(math.Exp2(11)),
+	time.Duration(rand.Intn(300)) * time.Microsecond * time.Duration(math.Exp2(12)),
+	time.Duration(rand.Intn(300)) * time.Microsecond * time.Duration(math.Exp2(13)),
+	time.Duration(rand.Intn(300)) * time.Microsecond * time.Duration(math.Exp2(14)),
+	time.Duration(rand.Intn(300)) * time.Microsecond * time.Duration(math.Exp2(15)),
+	time.Duration(rand.Intn(300)) * time.Microsecond * time.Duration(math.Exp2(16)),
+	time.Duration(rand.Intn(300)) * time.Microsecond * time.Duration(math.Exp2(17)),
+	time.Duration(rand.Intn(300)) * time.Microsecond * time.Duration(math.Exp2(18)),
+	time.Duration(rand.Intn(300)) * time.Microsecond * time.Duration(math.Exp2(19)),
+	time.Duration(rand.Intn(300)) * time.Microsecond * time.Duration(math.Exp2(20)),
+	time.Duration(rand.Intn(300)) * time.Microsecond * time.Duration(math.Exp2(21)),
+	time.Duration(rand.Intn(300)) * time.Microsecond * time.Duration(math.Exp2(22)),
+	time.Duration(rand.Intn(300)) * time.Microsecond * time.Duration(math.Exp2(23)),
+	time.Duration(rand.Intn(300)) * time.Microsecond * time.Duration(math.Exp2(24)),
+	time.Duration(rand.Intn(300)) * time.Microsecond * time.Duration(math.Exp2(25)),
+	time.Duration(rand.Intn(300)) * time.Microsecond * time.Duration(math.Exp2(26)),
+	time.Duration(rand.Intn(300)) * time.Microsecond * time.Duration(math.Exp2(27)),
+	time.Duration(rand.Intn(300)) * time.Microsecond * time.Duration(math.Exp2(28)),
+	time.Duration(rand.Intn(300)) * time.Microsecond * time.Duration(math.Exp2(29)),
+	time.Duration(rand.Intn(300)) * time.Microsecond * time.Duration(math.Exp2(30)),
+}
+
+var RespSize = []float64{
+	float64(1024),
+	float64(1024) * math.Exp2(1),
+	float64(1024) * math.Exp2(2),
+	float64(1024) * math.Exp2(3),
+	float64(1024) * math.Exp2(4),
+	float64(1024) * math.Exp2(5),
+	float64(1024) * math.Exp2(6),
+	float64(1024) * math.Exp2(7),
+	float64(1024) * math.Exp2(8),
+	float64(1024) * math.Exp2(9),
+	float64(1024) * math.Exp2(10),
+	float64(1024) * math.Exp2(11),
+	float64(1024) * math.Exp2(12),
+	float64(1024) * math.Exp2(13),
+	float64(1024) * math.Exp2(14),
+	float64(1024) * math.Exp2(15),
+	float64(1024) * math.Exp2(16),
+	float64(1024) * math.Exp2(17),
+	float64(1024) * math.Exp2(18),
+	float64(1024) * math.Exp2(19),
+	float64(1024) * math.Exp2(20),
 }
 
 // GenLogFields generate log fields.
