@@ -1453,15 +1453,15 @@ func (worker *copIteratorWorker) handleTaskOnce(bo *Backoffer, task *copTask) (*
 	if isInternal {
 		scope = metrics.LblInternal
 	}
-	// 模拟同一时刻有 10*5 台 tidb-server 实例往 20 个 tikv 发送 cop req
-	for i := 0; i < 10; i ++ {
-		for j := 0; j < 20; j++{
+	// 模拟同一时刻有 30*5 台 tidb-server 实例往 200 个 tikv 发送 cop req
+	for i := 0; i < 30; i ++ {
+		for j := 0; j < 200; j++{
 			metrics.TiKVCoprocessorHistogram.WithLabelValues(storeID, strconv.FormatBool(staleRead), scope).Observe(tidbUtil.ReqDuration[rand.Int63n(30)].Seconds())
 		}
 	}
 	if copResp != nil {
-		for i := 0; i < 10; i ++ {
-			for j := 0; j < 20; j++{
+		for i := 0; i < 30; i ++ {
+			for j := 0; j < 200; j++{
 				tidbmetrics.DistSQLCoprRespBodySize.WithLabelValues(storeAddr).Observe(tidbUtil.RespSize[rand.Intn(20)])
 			}
 		}	
