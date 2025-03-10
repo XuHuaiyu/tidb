@@ -1455,14 +1455,14 @@ func (worker *copIteratorWorker) handleTaskOnce(bo *Backoffer, task *copTask) (*
 	}
 	// 模拟同一时刻有 30 台 tidb-server 实例往 200 个 tikv 发送 cop req
 	for i := 0; i < 30; i ++ {
-		for j := 0; j < 100; j++ {
+		for j := 0; j < 50; j++ {
 			storeID = fmt.Sprintf("%03d%03d", i, j)
 			metrics.TiKVCoprocessorHistogram.WithLabelValues(storeID, strconv.FormatBool(staleRead), scope).Observe(tidbUtil.ReqDuration[rand.Int63n(30)].Seconds())
 		}
 	}
 	if copResp != nil {
 		for i := 0; i < 30; i ++ {
-			for j := 0; j < 100; j++{
+			for j := 0; j < 50; j++{
 				storeAddr = fmt.Sprintf("%03d%03d", i, j)
 				tidbmetrics.DistSQLCoprRespBodySize.WithLabelValues(storeAddr).Observe(tidbUtil.RespSize[rand.Intn(20)])
 			}
