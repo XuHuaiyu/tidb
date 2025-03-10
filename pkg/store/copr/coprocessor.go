@@ -43,12 +43,12 @@ import (
 	tidbmetrics "github.com/pingcap/tidb/pkg/metrics"
 	"github.com/pingcap/tidb/pkg/parser/terror"
 	"github.com/pingcap/tidb/pkg/resourcegroup"
-	tidbUtil "github.com/pingcap/tidb/pkg/util"
 	"github.com/pingcap/tidb/pkg/sessionctx/vardef"
 	copr_metrics "github.com/pingcap/tidb/pkg/store/copr/metrics"
 	"github.com/pingcap/tidb/pkg/store/driver/backoff"
 	derr "github.com/pingcap/tidb/pkg/store/driver/error"
 	"github.com/pingcap/tidb/pkg/store/driver/options"
+	tidbUtil "github.com/pingcap/tidb/pkg/util"
 	util2 "github.com/pingcap/tidb/pkg/util"
 	"github.com/pingcap/tidb/pkg/util/execdetails"
 	"github.com/pingcap/tidb/pkg/util/logutil"
@@ -1454,19 +1454,22 @@ func (worker *copIteratorWorker) handleTaskOnce(bo *Backoffer, task *copTask) (*
 		scope = metrics.LblInternal
 	}
 	// 模拟同一时刻有 30 台 tidb-server 实例往 200 个 tikv 发送 cop req
-	for i := 0; i < 30; i ++ {
-		for j := 0; j < 50; j++ {
-			storeID = fmt.Sprintf("%03d%03d", i, j)
-			metrics.TiKVCoprocessorHistogram.WithLabelValues(storeID, strconv.FormatBool(staleRead), scope).Observe(tidbUtil.ReqDuration[rand.Int63n(30)].Seconds())
-		}
-	}
-	if copResp != nil {
-		for i := 0; i < 30; i ++ {
-			for j := 0; j < 50; j++{
-				storeAddr = fmt.Sprintf("%03d%03d", i, j)
-				tidbmetrics.DistSQLCoprRespBodySize.WithLabelValues(storeAddr).Observe(tidbUtil.RespSize[rand.Intn(20)])
+
+	if scope == metrics.LblGeneral {
+		for i := 0; i < 30; i++ {
+			for j := 0; j < 50; j++ {
+				storeID = fmt.Sprintf("%03d%03d", i, j)
+				metrics.TiKVCoprocessorHistogram.WithLabelValues(storeID, strconv.FormatBool(staleRead), scope).Observe(tidbUtil.ReqDuration[rand.Int63n(30)].Seconds())
 			}
-		}	
+		}
+		if copResp != nil {
+			for i := 0; i < 30; i++ {
+				for j := 0; j < 50; j++ {
+					storeAddr = fmt.Sprintf("%03d%03d", i, j)
+					tidbmetrics.DistSQLCoprRespBodySize.WithLabelValues(storeAddr).Observe(tidbUtil.RespSize[rand.Intn(20)])
+				}
+			}
+		}
 	}
 
 	var result *copTaskResult
